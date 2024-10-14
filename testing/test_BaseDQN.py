@@ -1,5 +1,5 @@
 import torch
-from ..dqn.BaseDQN import *
+from dqn.BaseDQN import *
 
 ACTION_NUM = 2
 STATE_DIM = 4
@@ -42,3 +42,9 @@ def test_train(batch_size: int = 3):
     确定 train 方法的运行不会出错
     '''
     model._batch_update(random_transition(STATE_DIM, 1, batch_size))
+
+if __name__ == "__main__":
+    test_take_action()
+    test_get_td_target()
+    test_get_predict()
+    test_train()

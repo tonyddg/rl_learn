@@ -1,11 +1,13 @@
 import torch
-from ..dqn.Utility import *
+
+from dqn.Utility import *
 
 t1 = Transition(
     torch.tensor([[1, 2, 3]]),
     torch.tensor([[1, 2]]),
     torch.tensor([[4, 5, 6]]),
     torch.tensor([[1]]),
+    torch.tensor([[True]])
 )
 
 t2 = Transition(
@@ -13,6 +15,7 @@ t2 = Transition(
     torch.tensor([[3, 4]]),
     torch.tensor([[7, 8, 9]]),
     torch.tensor([[2]]),
+    torch.tensor([[False]])
 )
 
 def test_pack_transition_batch():
@@ -25,6 +28,7 @@ def test_pack_transition_batch():
         torch.tensor([[1, 2], [3, 4], [1, 2]]),
         torch.tensor([[4, 5, 6], [7, 8, 9], [4, 5, 6]]),
         torch.tensor([[1], [2], [1]]),
+        torch.tensor([[True], [False], [True]])
     )  
 
     t_test = pack_transition_batch([t1, t2, t1])
@@ -39,10 +43,11 @@ def test_make_transition():
     t_desire1 = t1
 
     t_test1 = make_transition_from_numpy(
-    np.array([1, 2, 3]),
-    np.array([1, 2]),
-    np.array([4, 5, 6]),
-    1
+        np.array([1, 2, 3]),
+        np.array([1, 2]),
+        np.array([4, 5, 6]),
+        1,
+        True
     )
 
     assert t_desire1 == t_test1
@@ -53,7 +58,8 @@ def test_make_transition():
         np.array([[1, 2, 3], [4, 5, 6], [1, 2, 3]]),
         np.array([[1, 2], [3, 4], [1, 2]]),
         np.array([[4, 5, 6], [7, 8, 9], [4, 5, 6]]),
-        np.array([[1], [2], [1]])
+        np.array([[1], [2], [1]]),
+        np.array([[True], [False], [True]])
     )
 
     assert t_desire2 == t_test2
@@ -74,5 +80,11 @@ def test_reply_queue():
     assert sample.action.shape == (2, 2)
     assert sample.next_state.shape == (2, 3)
     assert sample.reward.shape == (2, 1)
+    assert sample.done.shape == (2, 1)
 
     pass
+
+if __name__ == "__main__":
+    test_make_transition()
+    test_pack_transition_batch()
+    test_reply_queue()
