@@ -29,10 +29,8 @@ class HyperParam:
     episode_decay: int = 50
     
     ## Double DQN
-    # Target Network 更新中, DQN 网络权重
-    tau: float = 0.99
     # Target Network 更新频率 (单位为 update 方法调用次数, 即 batch)
-    tn_update_preiod: int = 10
+    sync_target_batch: int = 10
 
     ## 网络
     # 隐藏层大小
@@ -137,15 +135,12 @@ class BaseDQN:
         with torch.no_grad():
             # 使用 DQN 预测动作
             valuable_action = self._take_valuable_action(transition.next_state)
-            batch_size = valuable_action.size()[0]
 
             # 使用 Target Network 预测价值
             target_output = self.target_network(transition.next_state)
             
             # 取 Target Network 中 DQN 的预测动作作为 Q* 的预测
-            mix_predict = torch.zeros((batch_size, 1))
-            for i in range(batch_size):
-                mix_predict[i, 0] = target_output[i, valuable_action[i]]
+            mix_predict = torch.gather(target_output, 1, valuable_action)
 
             return transition.reward + self.hparams.gamma * mix_predict * (1 - transition.done)
 
@@ -153,24 +148,14 @@ class BaseDQN:
         '''
         获取模型预测
         '''
-        # 类似 _take_valuable_action, torch 的 max 返回值为二元组 (最大值, 最大值索引)
-        return torch.max(self.q_network(transition.state), 1, True)[0]
+        predict_batch = self.q_network(transition.state)
+        return torch.gather(predict_batch, 1, transition.action)
 
-    def _update_target_network(self):
+    def _sync_target_network(self):
         '''
-        更新 Target Network 参数
+        使用直接替换法, 更新 Target Network 参数
         '''
-        q_params = self.q_network.state_dict()
-
-        # debug, 使用直接替换法
-        # t_params = self.target_network.state_dict()
-
-        # for key in q_params.keys():
-        #     t_params[key] *= 1 - self.hparams.tau
-        #     t_params[key] += q_params[key] * self.hparams.tau
-        
-        # self.target_network.load_state_dict(t_params)
-        self.target_network.load_state_dict(q_params)
+        self.target_network.load_state_dict(self.q_network.state_dict()) 
 
     def _batch_update(self, transition: Transition) -> float:
         '''
@@ -192,8 +177,8 @@ class BaseDQN:
         self.optimizer.step()
 
         # 更新 Target Network
-        if self.train_batch_count % self.hparams.tn_update_preiod == 0:
-            self._update_target_network()
+        if self.train_batch_count % self.hparams.sync_target_batch == 0:
+            self._sync_target_network()
 
         self.q_network.eval()
 
@@ -223,10 +208,7 @@ class BaseDQN:
         '''
         self.epsilon = \
             self.hparams.epsilon_final + (self.hparams.epsilon_start - self.hparams.epsilon_final) \
-            * np.exp(episode / self.hparams.episode_decay)
-        self.epsilon = max(self.hparams.epsilon_final, self.hparams.epsilon_start - episode / self.hparams.episode_decay)
-
-        # self.epsilon = self.hparams.epsilon_final # debug 使用固定 epsilon
+            * np.exp(- episode / self.hparams.episode_decay) # 指数规律 epsilon
 
     def update_episode(self, episode: int):
         self._update_epsilon(episode)
