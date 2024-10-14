@@ -28,6 +28,9 @@ class Transition:
                 return False
         return True
 
+    def batch_size(self):
+        return self.reward.shape[0]
+
 def random_transition(state_dim: int, action_dim: int, batch_size: int = 1):
     '''
     生成随机 Transition
@@ -40,7 +43,7 @@ def random_transition(state_dim: int, action_dim: int, batch_size: int = 1):
         torch.rand((batch_size, 1))
     )
 
-def make_transition_from_numpy(state: np.ndarray, action: np.ndarray, next_state: np.ndarray, reward: SupportsFloat | np.ndarray, done: SupportsFloat | np.ndarray):
+def make_transition_from_numpy(state: np.ndarray, action: np.ndarray, next_state: np.ndarray, reward: SupportsFloat | np.ndarray, done: bool | np.ndarray):
     '''
     通过 Numpy 数组创建 Transition, 要求 state, action, next_state, reward (多 batch) 都必须是转移所有权的 Numpy 数组  
     
@@ -62,7 +65,7 @@ def make_transition_from_numpy(state: np.ndarray, action: np.ndarray, next_state
             torch.from_numpy(action),
             torch.from_numpy(next_state),
             torch.from_numpy(reward),
-            torch.tensor(done).view(1, -1)
+            torch.tensor(done)
         )
 
 def pack_transition_batch(pack: list[Transition]) -> Transition:
@@ -72,10 +75,10 @@ def pack_transition_batch(pack: list[Transition]) -> Transition:
     batch_size = len(pack)
     
     pack_state = torch.zeros((batch_size,) + pack[0].state.shape[1:])
-    pack_action = torch.zeros((batch_size,) + pack[0].action.shape[1:])
+    pack_action = torch.zeros((batch_size,) + pack[0].action.shape[1:], dtype = torch.int64)
     pack_next_state = torch.zeros((batch_size,) + pack[0].next_state.shape[1:])
     pack_reward = torch.zeros((batch_size,) + pack[0].reward.shape[1:])
-    pack_done = torch.zeros((batch_size,) + pack[0].reward.shape[1:])
+    pack_done = torch.zeros((batch_size,) + pack[0].reward.shape[1:], dtype = torch.int8)
 
     for i, iter in enumerate(pack):
         pack_state[i] = iter.state[0]
